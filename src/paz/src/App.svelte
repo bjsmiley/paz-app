@@ -35,9 +35,13 @@
 	<button on:click={increment}>
 		Clicked {num} time(s)
 	</button>
-	<button on:click={increment2}>
+	<!-- <button on:click={increment2}>
 		Clicked {num} time(s) (+2)
-	</button>
+	</button> -->
+	<fast-card>
+		<h2>Clicked {num} time(s) (+2)</h2>
+		<fast-button appearance="accent" on:click={increment2}>Click Me</fast-button>
+	</fast-card>
 </main>
 
 <style>
