@@ -47,3 +47,10 @@ impl ClientState {
         Ok(())
       }
 }
+
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[ts(export)]
+pub enum View {
+  Dashboard,
+  Settings
+}
