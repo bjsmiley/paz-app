@@ -19,6 +19,7 @@ pazcore = { path = "../../core" }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.0.0-rc.7", features = ["api-all", "system-tray"] }
+tokio = { version = "1.18.2", features = ["macros", "sync", "rt"] }
 
 [features]
 # by default Tauri runs in production mode

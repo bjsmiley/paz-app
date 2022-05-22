@@ -3,23 +3,28 @@ use ts_rs::TS;
 use std::fs;
 use std::io::{BufReader, Write, Error};
 use std::result::Result;
+use uuid::Uuid;
 
 pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
 #[ts(export)]
 pub struct ClientState {
-    pub first_name: String,
+    pub client_uuid: String,
     pub data_path: String,
+    pub reminders: Vec<ReminderState>
 }
 
 impl ClientState {
     
     pub fn new(data_path: &str) -> ClientState {
-        let config = ClientState {
-            first_name: "lol".to_string(),
-            data_path: data_path.to_string()
+        let mut config = ClientState {
+            client_uuid: Uuid::new_v4().to_string(),
+            data_path: data_path.to_string(),
+            reminders: Vec::new(),
         };
+
+        config.reminders.push(ReminderState::new("Reminder 1".to_string(), 10));
         return config;
     }
 
@@ -46,6 +51,26 @@ impl ClientState {
         *self = data;
         Ok(())
       }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
+#[ts(export)]
+pub struct ReminderState {
+  pub id: String,
+  pub name: String,
+  pub is_paused: bool,
+  pub wait_sec: i32
+}
+
+impl ReminderState {
+    pub fn new(name: String, wait: i32) -> ReminderState {
+      ReminderState {
+        id: Uuid::new_v4().to_string(),
+        name: name,
+        is_paused: false,
+        wait_sec: wait
+      }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]

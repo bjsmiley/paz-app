@@ -1,7 +1,7 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
 pub(crate) 
-use pazcore::{Core, ClientCommand, ClientQuery, CoreResponse};
+use pazcore::{Core, CoreController, ClientCommand, ClientQuery, CoreResponse};
 use tauri::api::path;
 use tauri::{
   SystemTray, 
@@ -17,9 +17,9 @@ use tauri::{
 };
 
 
-#[tauri::command]
-fn client_query(core: tauri::State<'_, Core>, data: ClientQuery) -> Result<CoreResponse, String> {
-  match core.exec_query(data) {
+#[tauri::command(async)]
+async fn client_query(core: tauri::State<'_, CoreController>, data: ClientQuery) -> Result<CoreResponse, String> {
+  match core.query(data).await {
     Ok(response) => Ok(response),
     Err(err) => {
       println!("Error: Query: {:?}", err);
@@ -28,9 +28,9 @@ fn client_query(core: tauri::State<'_, Core>, data: ClientQuery) -> Result<CoreR
   }
 }
 
-#[tauri::command]
-fn client_command(core: tauri::State<'_, Core>, data: ClientCommand) -> Result<CoreResponse, String> {
-  match core.exec_command(data) {
+#[tauri::command(async)]
+async fn client_command(core: tauri::State<'_, CoreController>, data: ClientCommand) -> Result<CoreResponse, String> {
+  match core.command(data).await {
     Ok(response) => Ok(response),
     Err(err) => {
       println!("Error: Command: {:?}", err);
@@ -42,16 +42,21 @@ fn client_command(core: tauri::State<'_, Core>, data: ClientCommand) -> Result<C
 
 
 
-fn main() {
+#[tokio::main]
+async fn main() {
 
   // instantiate core
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-  let core = Core::new(data_dir);
-
+  let mut core = Core::new(data_dir);
+  let controller = core.get_controller();
   // init connections/network resources
   core.initialize();
 
+
   // core.start in a background thread
+  tokio::spawn(async move {
+    core.start().await;
+  });
 
   // build sys tray
   let mut status = CustomMenuItem::new("status", "Status");
@@ -72,7 +77,7 @@ fn main() {
 
   // build app
   let app = tauri::Builder::default()
-    .manage(core)
+    .manage(controller)
     .invoke_handler(tauri::generate_handler![client_query, client_command])
     .system_tray(tray)
     .on_system_tray_event(system_tray_event_handler)
@@ -132,8 +137,8 @@ pub fn open_app_event_handler(handler: &AppHandle) {
       .build()
       .unwrap();
       return;
-    }
+  }
 
-    println!("Error: SysTray: Cannot find window config")
+  println!("Error: SysTray: Cannot find window config")
 }
 
