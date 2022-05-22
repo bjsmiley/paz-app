@@ -23,7 +23,7 @@ state.subscribe(val => {
 
 
 <style>
-	@tailwind base;
-	@tailwind components;
-	@tailwind utilities;
+	
+	
+	
 </style>

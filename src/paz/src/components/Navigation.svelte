@@ -25,9 +25,9 @@
 </div> -->
 
 <style>
-    @tailwind base;
-	@tailwind components;
-	@tailwind utilities;
+    
+	
+	
 	/* aside {
 		left: -100%;
 		transition: left 0.3s ease-in-out

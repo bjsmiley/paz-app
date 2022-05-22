@@ -65,9 +65,9 @@
 </button>
 
 <style>
-	@tailwind base;
-	@tailwind components;
-	@tailwind utilities;
+	
+	
+	
 
 	/* main {
 		text-align: center;

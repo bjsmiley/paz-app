@@ -15,9 +15,9 @@ export let display: View = "Dashboard"
 
 
 <style>
-  @tailwind base;
-	@tailwind components;
-	@tailwind utilities;
+  
+	
+	
 
 
 </style>

@@ -20,7 +20,6 @@ t.query({key: "ClientGetState"}).then(res => {
 })
 
 
-console.log('I set the state!')
 
 </script>
 

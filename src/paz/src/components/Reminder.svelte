@@ -1,21 +1,135 @@
 <script lang="ts">
 import type { ReminderState } from "@paz/core";
+import Card, {
+      Content,
+      PrimaryAction,
+      Actions,
+      ActionButtons,
+      ActionIcons,
+    } from '@smui/card';
+    import Button, { Label } from '@smui/button';
+    import IconButton, { Icon } from '@smui/icon-button';
+import Navigation from "./Navigation.svelte";
+  
+    let clicked = 0;
 
 export let state: ReminderState;
 
 </script>
 
-<div class="p-6 max-w-sm bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700">
-    <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{state.name}</h5>
-    <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">{state.id}</p>
-    <a href="#" class="inline-flex items-center py-2 px-3 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-        Read more
-        <svg class="ml-2 -mr-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-    </a>
-</div>
+<Button variant="raised">
+    <Label>{state.name}</Label>
+</Button>
+
+
+<!-- 
+<div class="card-display">
+    <div class="card-container">
+      <Card>
+        <PrimaryAction on:click={() => clicked++} padded>
+          Primary Action, a clickable area of the card.
+        </PrimaryAction>
+      </Card>
+    </div>
+  
+    <div class="card-container">
+      <Card>
+        <Content>A card with action buttons.</Content>
+        <Actions>
+          <Button on:click={() => clicked++}>
+            <Label>Action</Label>
+          </Button>
+          <Button on:click={() => clicked++}>
+            <Label>Another</Label>
+          </Button>
+        </Actions>
+      </Card>
+    </div>
+  
+    <div class="card-container">
+      <Card>
+        <Content>A card with a full-bleed action.</Content>
+        <Actions fullBleed>
+          <Button on:click={() => clicked++}>
+            <Label>Action</Label>
+            <i class="material-icons" aria-hidden="true">arrow_forward</i>
+          </Button>
+        </Actions>
+      </Card>
+    </div>
+  
+    <div class="card-container">
+      <Card>
+        <Content>A card with action icons.</Content>
+        <Actions>
+          <IconButton
+            on:click={() => clicked++}
+            toggle
+            aria-label="Add to favorites"
+            title="Add to favorites"
+          >
+            <Icon class="material-icons" on>favorite</Icon>
+            <Icon class="material-icons">favorite_border</Icon>
+          </IconButton>
+          <IconButton
+            class="material-icons"
+            on:click={() => clicked++}
+            title="Share">share</IconButton
+          >
+          <IconButton
+            class="material-icons"
+            on:click={() => clicked++}
+            title="More options">more_vert</IconButton
+          >
+        </Actions>
+      </Card>
+    </div>
+  
+    <div class="card-container">
+      <Card>
+        <Content>A card with Both.</Content>
+        <Actions>
+          <ActionButtons>
+            <Button on:click={() => clicked++}>
+              <Label>Action</Label>
+            </Button>
+            <Button on:click={() => clicked++}>
+              <Label>Another</Label>
+            </Button>
+          </ActionButtons>
+          <ActionIcons>
+            <IconButton
+              on:click={() => clicked++}
+              toggle
+              aria-label="Add to favorites"
+              title="Add to favorites"
+            >
+              <Icon class="material-icons" on>favorite</Icon>
+              <Icon class="material-icons">favorite_border</Icon>
+            </IconButton>
+            <IconButton
+              class="material-icons"
+              on:click={() => clicked++}
+              title="Share">share</IconButton
+            >
+            <IconButton
+              class="material-icons"
+              on:click={() => clicked++}
+              title="More options">more_vert</IconButton
+            >
+          </ActionIcons>
+        </Actions>
+      </Card>
+    </div>
+  </div>
+  
+  <pre class="status">Clicked: {clicked}</pre>
+   -->
+
+
 
 <style>
-    @tailwind base;
-	@tailwind components;
-	@tailwind utilities;
+    
+	
+	
 </style>
