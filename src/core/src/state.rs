@@ -25,6 +25,7 @@ impl ClientState {
         };
 
         config.reminders.push(ReminderState::new("Reminder 1".to_string(), 10));
+        config.reminders.push(ReminderState::new("Reminder 2".to_string(), 20));
         return config;
     }
 

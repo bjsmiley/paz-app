@@ -5,10 +5,8 @@ import { state } from '../store'
 import Reminder from './Reminder.svelte'
 
 let s = get(state)
-console.log(s)
 
 state.subscribe(val => {
-    console.log("state updated", val)
     s = val
 });
 
@@ -16,14 +14,19 @@ state.subscribe(val => {
 
 <div>
     <header>Dashboard</header>
-    {#each s?.reminders ?? [] as reminder}
-        <Reminder state={reminder} />
-    {/each}
+    <div class="card-display">
+        {#each s?.reminders ?? [] as reminder}
+            <Reminder state={reminder} />
+        {/each}
+    </div>
 </div>
 
 
 <style>
 	
-	
+	.card-display {
+        display: flex;
+        flex-direction: column;
+    }
 	
 </style>

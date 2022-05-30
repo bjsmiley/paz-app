@@ -10,12 +10,9 @@ import type { ClientState, CoreResponse } from '@paz/core';
 
 let display: View = "Dashboard"
 
-console.log('starting App.svelte!')
-console.log('Starting up!')
-
-let t = get(transport);
-t.query({key: "ClientGetState"}).then(res => {
-	console.log(res)
+get(transport)
+ .query({key: "ClientGetState"})
+ .then(res => {
 	state.set((res as CoreResponse).data as ClientState)
 })
 
@@ -24,7 +21,6 @@ t.query({key: "ClientGetState"}).then(res => {
 </script>
 
 <main>
-	<p>Hi</p>
 	<TopNav bind:display/>
 	{#if display == "Dashboard"}
 		<Dashboard/>
