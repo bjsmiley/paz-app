@@ -1,5 +1,6 @@
 <script lang="ts">
 
+import Accordion, { Panel, Header, Content } from '@smui-extra/accordion';
 import { get } from 'svelte/store'
 import { state } from '../store'
 import Reminder from './Reminder.svelte'
@@ -13,20 +14,24 @@ state.subscribe(val => {
 </script>
 
 <div>
-    <header>Dashboard</header>
-    <div class="card-display">
-        {#each s?.reminders ?? [] as reminder}
-            <Reminder state={reminder} />
-        {/each}
+    <div class="reminders-display">
+        <Accordion class="reminders-child">
+            {#each s?.reminders ?? [] as reminder}
+                <Reminder state={reminder} />
+            {/each}    
+        </Accordion>
     </div>
 </div>
 
 
 <style>
-	
-	.card-display {
+
+    .reminders-display :global(.reminders-child) {
+        /* justify-content: center; */
         display: flex;
+        justify-content: center;
         flex-direction: column;
+        margin: 30px 30px 30px 30px;
     }
 	
 </style>

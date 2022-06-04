@@ -59,7 +59,7 @@ impl ClientState {
 pub struct ReminderState {
   pub id: String,
   pub name: String,
-  pub is_paused: bool,
+  pub is_active: bool,
   pub wait_sec: i32
 }
 
@@ -68,7 +68,7 @@ impl ReminderState {
       ReminderState {
         id: Uuid::new_v4().to_string(),
         name: name,
-        is_paused: false,
+        is_active: false,
         wait_sec: wait
       }
     }
