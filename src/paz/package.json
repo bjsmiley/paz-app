@@ -41,6 +41,7 @@
     "@paz/core": "file:../core",
     "@tauri-apps/api": "^1.0.0-rc.4",
     "sirv-cli": "^2.0.0",
-    "svelte-material-ui": "^6.0.0-beta.16"
+    "svelte-material-ui": "^6.0.0-beta.16",
+    "uuid": "^8.3.2"
   }
 }
