@@ -60,11 +60,11 @@ pub struct ReminderState {
   pub id: String,
   pub name: String,
   pub is_active: bool,
-  pub wait_sec: i32
+  pub wait_sec: u64
 }
 
 impl ReminderState {
-    pub fn new(name: String, wait: i32) -> ReminderState {
+    pub fn new(name: String, wait: u64) -> ReminderState {
       ReminderState {
         id: Uuid::new_v4().to_string(),
         name: name,

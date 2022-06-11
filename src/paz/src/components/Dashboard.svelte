@@ -25,6 +25,15 @@ const onAddClick = () => {
 }
 
 const onCancelClick = async () => {
+    return sync()
+}
+
+const onSaveClick = async () => {
+    await get(transport).command({key: "SaveReminders", params: {reminders: s.reminders}})
+    await sync()
+}
+
+const sync = async () => {
     let res = (await get(transport).query({key: "ClientGetState"})) as CoreResponse;
     state.set(res.data as ClientState)
 }
@@ -45,7 +54,7 @@ const onCancelClick = async () => {
             <Button on:click={onAddClick}>
                 <Label>New</Label>
             </Button>
-            <Button on:click={() => {}}>
+            <Button on:click={onSaveClick}>
                 <Label>Save</Label>
             </Button>
             <Button on:click={onCancelClick}>

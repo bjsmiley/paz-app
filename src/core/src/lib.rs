@@ -1,3 +1,4 @@
+use cache::Cache;
 use serde::{Deserialize, Serialize};
 use state::{ClientState, ReminderState};
 use tokio::sync::{oneshot, mpsc::{UnboundedSender, UnboundedReceiver, unbounded_channel}};
@@ -6,6 +7,7 @@ use std::{path::PathBuf, fs};
 use thiserror::Error;
 
 pub mod state;
+pub mod cache;
 
 
 pub fn add_one(x: i32) -> i32 {
@@ -20,8 +22,10 @@ pub fn add(x: i32, y: i32) -> i32 {
 pub struct Core {
     state: ClientState,
     // background job
+    cache: Cache,
     // internal channel
     // event sender
+    
     query_channel: (UnboundedSender<ReturnableMessage<ClientQuery>>, UnboundedReceiver<ReturnableMessage<ClientQuery>>),
     command_channel: (UnboundedSender<ReturnableMessage<ClientCommand>>, UnboundedReceiver<ReturnableMessage<ClientCommand>>),
 }
@@ -43,8 +47,16 @@ impl Core {
         state.read_disk().unwrap_or_default();
         state.save();
 
+        // build cache
+        let mut cache = Cache::new();
+        state.reminders
+            .iter()
+            .filter(|x| x.is_active)
+            .for_each(|x| cache.add(x));
+
         let core = Core {
-            state: state,
+            state,
+            cache,
             query_channel: unbounded_channel(),
             command_channel: unbounded_channel()
         };
@@ -52,8 +64,11 @@ impl Core {
         return core;
     }
 
-    pub fn initialize(&self) {
+    pub fn initialize(&mut self) {
         println!("Info: Core: initializing...");
+
+        // setup reminder cache instance
+        self.cache.start()
     }
 
     pub fn get_controller(&self) -> CoreController {
@@ -94,17 +109,19 @@ impl Core {
             ClientCommand::Add { x, y } => {
                 CoreResponse::Sum(x + y)
             },
-            ClientCommand::NewReminder { mut reminder } => {
-                self.add_reminder(&mut reminder);
-                CoreResponse::Success(())
+            ClientCommand::SaveReminders { reminders } => {
+                let res = self.save_reminders(reminders);
+                res
             }
             // _ => todo!()
         })
     }
 
-    fn add_reminder(&mut self, reminder: &mut ReminderState) {
-        reminder.id = uuid::Uuid::new_v4().to_string();
-        self.state.reminders.push(reminder.to_owned())
+    fn save_reminders(&mut self, reminders: Vec<ReminderState>) -> CoreResponse {
+        // reminder.id = uuid::Uuid::new_v4().to_string();
+        self.state.reminders = reminders;
+        self.state.save();
+        CoreResponse::Success(())
         // todo: refresh tokio sync job to 
     }
 
@@ -167,7 +184,7 @@ pub enum ClientQuery {
 pub enum ClientCommand {
     AddOne { value: i32 },
     Add { x: i32, y: i32},
-    NewReminder{ reminder: ReminderState }
+    SaveReminders{ reminders: Vec<ReminderState> }
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
