@@ -118,11 +118,14 @@ impl Core {
     }
 
     fn save_reminders(&mut self, reminders: Vec<ReminderState>) -> CoreResponse {
-        // reminder.id = uuid::Uuid::new_v4().to_string();
+        
+        // persist
         self.state.reminders = reminders;
         self.state.save();
+
+        // resync cache
+        self.cache.resync(&self.state.reminders);
         CoreResponse::Success(())
-        // todo: refresh tokio sync job to 
     }
 
 }
