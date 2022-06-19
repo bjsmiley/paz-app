@@ -1,11 +1,12 @@
-use tokio::task::JoinHandle;
+use tokio::{task::JoinHandle, sync::mpsc::unbounded_channel};
 use chrono::{DateTime, Utc};
 use std::{sync::{Arc, Mutex}, collections::{HashMap, HashSet}};
 use tokio::time::interval;
 
-use crate::state::ReminderState;
+use crate::{state::{ReminderState, ClientState}, CoreContext, InternalEvent};
 
 pub struct Cache {
+    context : CoreContext,
     reminders: Vec<ActiveReminderCache>
 }
 
@@ -15,17 +16,28 @@ pub struct ActiveReminderCache {
     pub wait_sec: u64,
     pub last_execution: Arc<Mutex<DateTime<Utc>>>, // https://tokio.rs/tokio/tutorial/shared-state
     pub next_execution: Arc<Mutex<DateTime<Utc>>>,
+    ctx: CoreContext,
     schedule: Option<JoinHandle<()>>
 }
 
 impl Cache {
 
-    pub fn new() -> Cache {
-        Cache { reminders: Vec::<ActiveReminderCache>::new() }
+    pub fn new(state: &ClientState, ctx: CoreContext) -> Cache {
+        let mut cache = Cache { 
+            context: ctx, 
+            reminders: Vec::<ActiveReminderCache>::new() 
+        };
+
+        state.reminders
+            .iter()
+            .filter(|x| x.is_active)
+            .for_each(|x| cache.add(x));
+
+        cache
     }
 
     pub fn add(&mut self, reminder: &ReminderState) {
-        self.reminders.push(ActiveReminderCache::new(reminder))
+        self.reminders.push(ActiveReminderCache::new(reminder, &self.context))
     } 
 
     pub fn start(&mut self) {
@@ -52,7 +64,7 @@ impl Cache {
         // add new reminders to cache
         reminders.iter().for_each(|r| {
             if !cache_ids.contains(&r.id) {
-                let mut new = ActiveReminderCache::new(r);
+                let mut new = ActiveReminderCache::new(r, &self.context);
                 new.start();
                 self.reminders.push(new)
             }
@@ -97,7 +109,7 @@ impl Cache {
 
 impl ActiveReminderCache {
 
-    pub fn new(reminder: &ReminderState) -> ActiveReminderCache {
+    pub fn new(reminder: &ReminderState, ctx: &CoreContext) -> ActiveReminderCache {
         let now = Utc::now();
         let span = chrono::Duration::seconds(i64::try_from(reminder.wait_sec).unwrap());
         ActiveReminderCache {
@@ -106,7 +118,8 @@ impl ActiveReminderCache {
             wait_sec: reminder.wait_sec,
             last_execution: Arc::new(Mutex::new(now)),
             next_execution: Arc::new(Mutex::new(now + span)),
-            schedule: None
+            schedule: None,
+            ctx: ctx.clone()
         }
     }
 
@@ -128,15 +141,17 @@ impl ActiveReminderCache {
     fn start(&mut self) {
         let dur = self.wait_sec.clone();
         let id = self.id.clone();
+        let event_emitter = self.ctx.intenal_sender.clone();
         self.stop();
         let task = tokio::spawn(async move {
             let period = std::time::Duration::from_secs(dur);
             let mut interval = interval(period);
-            println!("Info: Reminder: Starting {}", id);
+            //println!("Info: Reminder: Starting {}", id);
             interval.tick().await;
             loop {
                 interval.tick().await;
-                println!("Info: Reminder: Tick {}", id);
+                //println!("Info: Reminder: Tick {}", id);
+                event_emitter.send(InternalEvent::ReminderStart{id: id.clone()}).unwrap_or(());
             }
         });
         self.schedule = Some(task)
@@ -152,8 +167,17 @@ impl ActiveReminderCache {
 
 #[cfg(test)]
 mod tests {
+    use tokio::sync::mpsc::unbounded_channel;
+
     use crate::state::ReminderState;
-    use super::Cache;
+    use super::{Cache, ActiveReminderCache};
+
+    fn create_test_cache() -> Cache {
+        Cache { 
+            context: crate::CoreContext { intenal_sender: unbounded_channel().0 },
+            reminders: Vec::<ActiveReminderCache>::new()
+        }
+    }
 
     #[test]
     fn cache_resync_removes_deleted() {
@@ -166,7 +190,7 @@ mod tests {
         persisted.iter_mut().for_each(|r| r.is_active = true);
 
 
-        let mut cache = Cache::new();
+        let mut cache = create_test_cache();
         cache.add(&persisted[0]);
         cache.add(&persisted[1]);
         cache.add(&persisted[2]);
@@ -187,7 +211,7 @@ mod tests {
         ];
         persisted.iter_mut().for_each(|r| r.is_active = true);
 
-        let mut cache = Cache::new();
+        let mut cache = create_test_cache();
         cache.add(&persisted[0]);
         cache.add(&persisted[1]);
 
@@ -207,7 +231,7 @@ mod tests {
             r2
         ];
 
-        let mut cache = Cache::new();
+        let mut cache = create_test_cache();
         cache.add(&persisted[0]);
         cache.add(&persisted[1]);
 
@@ -224,7 +248,7 @@ mod tests {
         ];
         persisted.iter_mut().for_each(|r| r.is_active = true);
         
-        let mut cache = Cache::new();
+        let mut cache = create_test_cache();
         cache.add(&persisted[0]);
 
         cache.resync(&persisted);

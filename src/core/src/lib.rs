@@ -20,14 +20,23 @@ pub fn add(x: i32, y: i32) -> i32 {
 
 
 pub struct Core {
-    state: ClientState,
-    // background job
-    cache: Cache,
-    // internal channel
-    // event sender
     
-    query_channel: (UnboundedSender<ReturnableMessage<ClientQuery>>, UnboundedReceiver<ReturnableMessage<ClientQuery>>),
-    command_channel: (UnboundedSender<ReturnableMessage<ClientCommand>>, UnboundedReceiver<ReturnableMessage<ClientCommand>>),
+    state: ClientState,
+    cache: Cache,
+    query_channel: (
+        UnboundedSender<ReturnableMessage<ClientQuery>>, 
+        UnboundedReceiver<ReturnableMessage<ClientQuery>>
+    ),
+    command_channel: (
+        UnboundedSender<ReturnableMessage<ClientCommand>>, 
+        UnboundedReceiver<ReturnableMessage<ClientCommand>>
+    ),
+
+    // a channel for child threads to send events back to the core
+    internal_channel: (
+        UnboundedSender<InternalEvent>,
+        UnboundedReceiver<InternalEvent>
+    )
 }
 
 impl Core {
@@ -47,19 +56,23 @@ impl Core {
         state.read_disk().unwrap_or_default();
         state.save();
 
+        // build channels
+        let internal_channel = unbounded_channel::<InternalEvent>();
+
         // build cache
-        let mut cache = Cache::new();
-        state.reminders
-            .iter()
-            .filter(|x| x.is_active)
-            .for_each(|x| cache.add(x));
+        let cache = Cache::new(&state, CoreContext { 
+            intenal_sender: internal_channel.0.clone() 
+        });
 
         let core = Core {
             state,
             cache,
             query_channel: unbounded_channel(),
-            command_channel: unbounded_channel()
+            command_channel: unbounded_channel(),
+            internal_channel
         };
+
+
 
         return core;
     }
@@ -68,6 +81,7 @@ impl Core {
         println!("Info: Core: initializing...");
 
         // setup reminder cache instance
+        self.cache = Cache::new(&self.state, self.get_context());
         self.cache.start()
     }
 
@@ -75,6 +89,12 @@ impl Core {
         CoreController {
           query_tx: self.query_channel.0.clone(),
           command_tx: self.command_channel.0.clone(),
+        }
+    }
+
+    pub fn get_context(&self) -> CoreContext {
+        CoreContext { 
+            intenal_sender:  self.internal_channel.0.clone()
         }
     }
 
@@ -89,6 +109,7 @@ impl Core {
                     let res = self.exec_command(c.data).await;
                     c.tx_return.send(res).unwrap_or(());
                 }
+                Some(e) = self.internal_channel.1.recv() => self.exec_event(e).await
             }
         }
     }
@@ -102,6 +123,7 @@ impl Core {
         })
     }
 
+    // handle commands
     pub async fn exec_command(&mut self, command: ClientCommand) -> Result<CoreResponse, CoreError> {
         println!("Info: Command: {:?}", command);
         Ok(match command {
@@ -117,6 +139,14 @@ impl Core {
         })
     }
 
+    // handle events
+    pub async fn exec_event(&mut self, event: InternalEvent) {
+        println!("Info: Event {:?}", event);
+        match event {
+            InternalEvent::ReminderStart { id } => self.start_reminder(id)
+        }
+    }
+
     fn save_reminders(&mut self, reminders: Vec<ReminderState>) -> CoreResponse {
         
         // persist
@@ -126,6 +156,10 @@ impl Core {
         // resync cache
         self.cache.resync(&self.state.reminders);
         CoreResponse::Success(())
+    }
+
+    fn start_reminder(&self, id: String) {
+
     }
 
 }
@@ -173,6 +207,13 @@ impl CoreController {
     }
 }
 
+#[derive(Clone)]
+pub struct CoreContext {
+    pub intenal_sender: UnboundedSender<InternalEvent>
+}
+
+
+
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
@@ -213,4 +254,9 @@ pub enum CoreError {
 //   DatabaseError(#[from] prisma::QueryError),
 //   #[error("Database error")]
 //   LibraryError(#[from] library::LibraryError),
+}
+
+#[derive(Debug)]
+pub enum InternalEvent {
+    ReminderStart{ id: String } 
 }
