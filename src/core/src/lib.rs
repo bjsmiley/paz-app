@@ -134,6 +134,10 @@ impl Core {
             ClientCommand::SaveReminders { reminders } => {
                 let res = self.save_reminders(reminders);
                 res
+            },
+            ClientCommand::DelayReminder { id, delay } => {
+                self.cache.delay_reminder(&id, delay);
+                CoreResponse::Success(())
             }
             // _ => todo!()
         })
@@ -159,7 +163,7 @@ impl Core {
     }
 
     fn start_reminder(&self, id: String) {
-
+        todo!();
     }
 
 }
@@ -228,7 +232,8 @@ pub enum ClientQuery {
 pub enum ClientCommand {
     AddOne { value: i32 },
     Add { x: i32, y: i32},
-    SaveReminders{ reminders: Vec<ReminderState> }
+    SaveReminders{ reminders: Vec<ReminderState> },
+    DelayReminder{ id: String, delay: u64}
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
@@ -256,7 +261,7 @@ pub enum CoreError {
 //   LibraryError(#[from] library::LibraryError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum InternalEvent {
     ReminderStart{ id: String } 
 }

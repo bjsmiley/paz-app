@@ -24,8 +24,8 @@ impl ClientState {
             reminders: Vec::new(),
         };
 
-        config.reminders.push(ReminderState::new("Reminder 1".to_string(), 10));
-        config.reminders.push(ReminderState::new("Reminder 2".to_string(), 20));
+        config.reminders.push(ReminderState::new("Reminder 1".to_string(), 10, 15));
+        config.reminders.push(ReminderState::new("Reminder 2".to_string(), 20, 30));
         return config;
     }
 
@@ -34,7 +34,6 @@ impl ClientState {
         // only write to disk if config path is set
         if !content.data_path.is_empty() {
           let config_path = format!("{}/{}", content.data_path, CLIENT_STATE_CONFIG_NAME);
-          //println!("trying to write to '{:?}'", config_path);
           let mut file = fs::File::create(config_path).unwrap();
           let json = serde_json::to_string(content).unwrap();
           file.write_all(json.as_bytes()).unwrap();
@@ -43,7 +42,6 @@ impl ClientState {
     
       pub fn read_disk(&mut self) -> Result<(),Error> {
         let config_path = format!("{}/{}", &self.data_path, CLIENT_STATE_CONFIG_NAME);
-        //println!("trying to read from '{:?}'", config_path);
         // open the file and parse json
         let file = fs::File::open(config_path)?;
         let reader = BufReader::new(file);
@@ -60,16 +58,18 @@ pub struct ReminderState {
   pub id: String,
   pub name: String,
   pub is_active: bool,
-  pub wait_sec: u64
+  pub wait_sec: u64,
+  pub duration_sec: u64
 }
 
 impl ReminderState {
-    pub fn new(name: String, wait: u64) -> ReminderState {
+    pub fn new(name: String, wait: u64, duration: u64) -> ReminderState {
       ReminderState {
         id: Uuid::new_v4().to_string(),
         name: name,
         is_active: false,
-        wait_sec: wait
+        wait_sec: wait,
+        duration_sec: duration
       }
     }
 }
