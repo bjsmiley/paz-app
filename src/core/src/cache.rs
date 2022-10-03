@@ -13,8 +13,8 @@ pub struct Cache {
 pub struct ActiveReminderCache {
     pub id: String,
     pub name: String,
-    pub wait_sec_dur: Duration,
-    pub one_off_wait_sec_dur: Option<Duration>,
+    pub wait_ms_dur: Duration,
+    pub one_off_wait_ms_dur: Option<Duration>,
     pub reminder_dur: Duration,
     pub next_execution: Arc<Mutex<DateTime<Utc>>>,
     ctx: CoreContext,
@@ -47,7 +47,7 @@ impl Cache {
         })
     } 
 
-    pub fn delay_reminder(&mut self, id: &String, delay: u64) {
+    pub fn delay_reminder(&mut self, id: &String, delay: i32) {
         if let Some(r) = self.get_reminder(id) {
             r.delay(delay);
         }
@@ -107,7 +107,7 @@ impl Cache {
         self.reminders.iter_mut().for_each(|c| {
             match rem_map.get(&c.id) {
                 None => panic!("impossible"),
-                Some(r) => c.resync(&r.name, &r.wait_sec, &r.duration_sec, None) 
+                Some(r) => c.resync(&r.name, &r.wait_ms, &r.duration_ms, None) 
             }
         });
     }
@@ -122,13 +122,13 @@ impl ActiveReminderCache {
 
     pub fn new(reminder: &ReminderState, ctx: &CoreContext) -> ActiveReminderCache {
         let now = Utc::now();
-        let wait_span = chrono::Duration::seconds(i64::try_from(reminder.wait_sec).unwrap());
-        let dur_span = chrono::Duration::seconds(i64::try_from(reminder.duration_sec).unwrap());
+        let wait_span = chrono::Duration::milliseconds(i64::try_from(reminder.wait_ms).unwrap());
+        let dur_span = chrono::Duration::milliseconds(i64::try_from(reminder.duration_ms).unwrap());
         ActiveReminderCache {
             id: reminder.id.clone(),
             name: reminder.name.clone(),
-            wait_sec_dur: wait_span,
-            one_off_wait_sec_dur: None,
+            wait_ms_dur: wait_span,
+            one_off_wait_ms_dur: None,
             reminder_dur : dur_span,
             next_execution: Arc::new(Mutex::new(now + wait_span)),
             schedule: None,
@@ -136,15 +136,15 @@ impl ActiveReminderCache {
         }
     }
 
-    pub fn delay(&mut self, delay: u64) {
-        let one_off_dur = chrono::Duration::seconds(i64::try_from(delay).unwrap());
-        self.one_off_wait_sec_dur = Some(one_off_dur);
+    pub fn delay(&mut self, delay: i32) {
+        let one_off_dur = chrono::Duration::milliseconds(i64::try_from(delay).unwrap());
+        self.one_off_wait_ms_dur = Some(one_off_dur);
         self.start()
     }
 
-    pub fn resync(&mut self, name: &String, wait_sec: &u64, dur_sec: &u64, one_off_wait_sec: Option<u64>) {
-        let wait_span = chrono::Duration::seconds(i64::try_from(*wait_sec).unwrap());
-        let dur_span = chrono::Duration::seconds(i64::try_from(*dur_sec).unwrap());
+    pub fn resync(&mut self, name: &String, wait_ms: &i32, dur_ms: &i32, one_off_wait_ms: Option<i32>) {
+        let wait_span = chrono::Duration::milliseconds(i64::try_from(*wait_ms).unwrap());
+        let dur_span = chrono::Duration::milliseconds(i64::try_from(*dur_ms).unwrap());
         let mut restart = false;
         
         if self.name != *name {
@@ -153,13 +153,13 @@ impl ActiveReminderCache {
         if self.reminder_dur != dur_span {
             self.reminder_dur = dur_span
         }
-        if let Some(one_off_sec) = one_off_wait_sec {
-            let one_off_span = chrono::Duration::seconds(i64::try_from(one_off_sec).unwrap());
-            self.one_off_wait_sec_dur = Some(one_off_span);
+        if let Some(one_off_ms) = one_off_wait_ms {
+            let one_off_span = chrono::Duration::milliseconds(i64::try_from(one_off_ms).unwrap());
+            self.one_off_wait_ms_dur = Some(one_off_span);
             restart = true;
         }
-        if self.wait_sec_dur != wait_span {
-            self.wait_sec_dur = wait_span;
+        if self.wait_ms_dur != wait_span {
+            self.wait_ms_dur = wait_span;
             restart = true;
         }
         if restart {
@@ -171,7 +171,7 @@ impl ActiveReminderCache {
     fn start(&mut self) {
         
         // setup wait duration
-        let wait_dur = self.wait_sec_dur.clone();
+        let wait_dur = self.wait_ms_dur.clone();
         let wait_dur_std = wait_dur.to_std().unwrap();
 
         // setup reminder duration
@@ -179,7 +179,7 @@ impl ActiveReminderCache {
         let reminder_dur_std = reminder_dur.to_std().unwrap();
 
         // setup one off duration
-        let one_off_dur = self.one_off_wait_sec_dur.clone();
+        let one_off_dur = self.one_off_wait_ms_dur.clone();
 
         // setup properties
         let id = self.id.clone();
@@ -218,7 +218,7 @@ impl ActiveReminderCache {
                 {
                     *next_lock.lock().unwrap() = Utc::now() + default_dur;
                 }
-                event_emitter.send(InternalEvent::ReminderStart{id: id.clone()}).unwrap_or(());
+                event_emitter.send(InternalEvent::ReminderStart{id: id.clone(), next_duration_ms: i32::try_from(default_dur.num_milliseconds()).unwrap()}).unwrap_or(());
                 default_interval.tick().await;
 
             }
@@ -269,8 +269,8 @@ mod tests {
         // assign
         let (tx, mut rx) = unbounded_channel::<InternalEvent>();
         let mut cache = create_test_cache_with_sender(tx);
-        let reminder1 = ReminderState::new("test_reminder1".to_string(), 1, 1);
-        let reminder2 = ReminderState::new("test_reminder2".to_string(), 2, 1);
+        let reminder1 = ReminderState::new("test_reminder1".to_string(), 100, 100);
+        let reminder2 = ReminderState::new("test_reminder2".to_string(), 200, 100);
         cache.add(&reminder1);
         cache.add(&reminder2);
 
@@ -280,12 +280,15 @@ mod tests {
         let event_two = rx.recv().await;
         let event_three = rx.recv().await;
         let event_four = rx.recv().await;
+        let event_five = rx.recv().await;
+
 
         // assert
-        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder1.id.clone() });
-        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder2.id.clone() });
-        assert_eq!(event_three.unwrap(), InternalEvent::ReminderStart { id: reminder1.id.clone() });
-        assert_eq!(event_four.unwrap(), InternalEvent::ReminderStart { id: reminder2.id.clone() });
+        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder1.id.clone(), next_duration_ms: 200 });
+        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder2.id.clone(), next_duration_ms: 300 });
+        assert_eq!(event_three.unwrap(), InternalEvent::ReminderStart { id: reminder1.id.clone(), next_duration_ms: 200 });
+        assert_eq!(event_four.unwrap(), InternalEvent::ReminderStart { id: reminder1.id.clone(), next_duration_ms: 200 });
+        assert_eq!(event_five.unwrap(), InternalEvent::ReminderStart { id: reminder2.id.clone(), next_duration_ms: 300 });
     }
 
 
@@ -295,7 +298,7 @@ mod tests {
         // assign
         let (tx, mut rx) = unbounded_channel::<InternalEvent>();
         let mut cache = create_test_cache_with_sender(tx);
-        let reminder = ReminderState::new("test_reminder".to_string(), 2, 1);
+        let reminder = ReminderState::new("test_reminder".to_string(), 200, 100);
         cache.add(&reminder);
 
         // act
@@ -314,11 +317,11 @@ mod tests {
         let dur2 = (two_ts - one_ts).num_milliseconds();
         let diff1 = (next_one - one_ts).num_milliseconds();
         let diff2 = (next_two - two_ts).num_milliseconds();
-        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone() });
-        assert!(dur1 >= 2000 && dur1 < 2040, "dur1 is {} but should be around 2000 ms", dur1);
+        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone(), next_duration_ms: 300 });
+        assert!(dur1 > 160 && dur1 < 240, "dur1 is {} but should be around 200 ms", dur1);
         assert!(diff1 > -40 && diff1 < 40, "diff1 is {} but should be around 0 ms", diff1);
-        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone() });
-        assert!(dur2 >= 2960 && dur2 < 3040, "dur2 is {} but should be around 3000 ms", dur2);
+        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone(), next_duration_ms: 300 });
+        assert!(dur2 > 260 && dur2 < 340, "dur2 is {} but should be around 300 ms", dur2);
         assert!(diff2 > -40 && diff2 < 40, "diff2 is {} but should be around 0 ms", diff2);
 
     }
@@ -329,7 +332,7 @@ mod tests {
         // assign
         let (tx, mut rx) = unbounded_channel::<InternalEvent>();
         let mut cache = create_test_cache_with_sender(tx);
-        let reminder = ReminderState::new("test_reminder".to_string(), 1, 1);
+        let reminder = ReminderState::new("test_reminder".to_string(), 100, 100);
         cache.add(&reminder);
 
         // act
@@ -340,8 +343,8 @@ mod tests {
         let event_one = rx.recv().await;
         let one_ts = Utc::now();
 
-        cache.delay_reminder(&reminder.id, 3);
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        cache.delay_reminder(&reminder.id, 300);
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         let next_two = cache.get_reminder(&reminder.id).unwrap().next_execution.lock().unwrap().clone();
         let event_two = rx.recv().await;
@@ -358,14 +361,14 @@ mod tests {
         let diff1 = (next_one - one_ts).num_milliseconds();
         let diff2 = (next_two - two_ts).num_milliseconds();
         let diff3 = (next_three - three_ts).num_milliseconds();
-        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone() });
-        assert!(dur1 >= 1000 && dur1 < 1040, "dur1 is {} but should be around 1000 ms", dur1);
+        assert_eq!(event_one.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone(), next_duration_ms: 200 });
+        assert!(dur1 > 60 && dur1 < 140, "dur1 is {} but should be around 100 ms", dur1);
         assert!(diff1 > -40 && diff1 < 40, "diff1 is {} but should be around 0 ms", diff1);
-        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone() });
-        assert!(dur2 >= 2960 && dur2 < 3040, "dur2 is {} but should be around 3000 ms", dur2);
+        assert_eq!(event_two.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone(), next_duration_ms: 200 });
+        assert!(dur2 > 260 && dur2 < 340, "dur2 is {} but should be around 300 ms", dur2);
         assert!(diff2 > -40 && diff2 < 40, "diff2 is {} but should be around 0 ms", diff2);
-        assert_eq!(event_three.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone() });
-        assert!(dur3 >= 1960 && dur3 < 2040, "dur3 is {} but should be around 2000 ms", dur3);
+        assert_eq!(event_three.unwrap(), InternalEvent::ReminderStart { id: reminder.id.clone(), next_duration_ms: 200 });
+        assert!(dur3 > 160 && dur3 < 240, "dur3 is {} but should be around 2000 ms", dur3);
         assert!(diff3 > -40 && diff3 < 40, "diff2 is {} but should be around 0 ms", diff3);
 
 

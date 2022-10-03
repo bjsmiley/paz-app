@@ -1,5 +1,6 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
+use pazcore::CoreEvent;
 pub(crate) 
 use pazcore::{Core, CoreController, ClientCommand, ClientQuery, CoreResponse};
 use tauri::api::path;
@@ -47,7 +48,7 @@ async fn main() {
 
   // instantiate core
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-  let mut core = Core::new(data_dir);
+  let (mut core, mut event_reciever) = Core::new(data_dir);
   let controller = core.get_controller();
   // init connections/network resources
   core.initialize();
@@ -77,6 +78,10 @@ async fn main() {
 
   // build app
   let app = tauri::Builder::default()
+    .setup(|app| {
+      run_event_reciever(app.handle(), event_reciever);
+      Ok(())
+    })
     .manage(controller)
     .invoke_handler(tauri::generate_handler![client_query, client_command])
     .system_tray(tray)
@@ -86,6 +91,19 @@ async fn main() {
 
   // run
   app.run(run_event_handler);
+}
+
+pub fn run_event_reciever(app: AppHandle, mut receiver: tokio::sync::mpsc::Receiver<CoreEvent>) {
+  tokio::spawn(async move {
+    while let Some(event) = receiver.recv().await {
+      println!("INFO: NEW Reminder Status");
+      match event {
+          CoreEvent::ReminderNewStatus { id: _, next_duration_ms: _ } => {
+            app.emit_all("core_event", &event).unwrap();
+          }
+      }
+    }
+  });
 }
 
 

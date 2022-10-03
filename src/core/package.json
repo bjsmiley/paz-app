@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "codegen": "cargo test && ts-node ./scripts/bindingIndex.ts",
+    "codegen": "cargo test && npx ts-node ./scripts/bindingIndex.ts",
     "build": "cargo build",
     "test": "cargo test"
   },

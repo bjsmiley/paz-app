@@ -24,8 +24,8 @@ impl ClientState {
             reminders: Vec::new(),
         };
 
-        config.reminders.push(ReminderState::new("Reminder 1".to_string(), 10, 15));
-        config.reminders.push(ReminderState::new("Reminder 2".to_string(), 20, 30));
+        config.reminders.push(ReminderState::new("Stretch".to_string(), 10 * 1000, 15 * 1000));
+        config.reminders.push(ReminderState::new("Drink Water".to_string(), 20 * 1000, 30 * 1000));
         return config;
     }
 
@@ -58,18 +58,18 @@ pub struct ReminderState {
   pub id: String,
   pub name: String,
   pub is_active: bool,
-  pub wait_sec: u64,
-  pub duration_sec: u64
+  pub wait_ms: i32,
+  pub duration_ms: i32
 }
 
 impl ReminderState {
-    pub fn new(name: String, wait: u64, duration: u64) -> ReminderState {
+    pub fn new(name: String, wait: i32, duration: i32) -> ReminderState {
       ReminderState {
         id: Uuid::new_v4().to_string(),
         name: name,
         is_active: false,
-        wait_sec: wait,
-        duration_sec: duration
+        wait_ms: wait,
+        duration_ms: duration
       }
     }
 }

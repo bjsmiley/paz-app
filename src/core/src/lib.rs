@@ -1,7 +1,8 @@
 use cache::Cache;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use state::{ClientState, ReminderState};
-use tokio::sync::{oneshot, mpsc::{UnboundedSender, UnboundedReceiver, unbounded_channel}};
+use tokio::sync::{oneshot, mpsc::{UnboundedSender, UnboundedReceiver, unbounded_channel, Sender, Receiver, channel}};
 use ts_rs::TS;
 use std::{path::PathBuf, fs};
 use thiserror::Error;
@@ -23,10 +24,14 @@ pub struct Core {
     
     state: ClientState,
     cache: Cache,
+
+    // a channel for the ui to send queries w/ returnable values
     query_channel: (
         UnboundedSender<ReturnableMessage<ClientQuery>>, 
         UnboundedReceiver<ReturnableMessage<ClientQuery>>
     ),
+
+    // a channel for the ui to send commands w/ returnable values
     command_channel: (
         UnboundedSender<ReturnableMessage<ClientCommand>>, 
         UnboundedReceiver<ReturnableMessage<ClientCommand>>
@@ -36,13 +41,16 @@ pub struct Core {
     internal_channel: (
         UnboundedSender<InternalEvent>,
         UnboundedReceiver<InternalEvent>
-    )
+    ),
+
+    // a channel sender for core to send events to the ui
+    event_sender: Sender<CoreEvent>
 }
 
 impl Core {
 
     // create new instance of core, run startup tasks
-    pub fn new(mut data_dir: PathBuf) -> Core {
+    pub fn new(mut data_dir: PathBuf) -> (Core, Receiver<CoreEvent>) {
         data_dir = data_dir.join("paz");
         let data_dir = data_dir.to_str().unwrap();
 
@@ -58,23 +66,21 @@ impl Core {
 
         // build channels
         let internal_channel = unbounded_channel::<InternalEvent>();
+        let event_channel = channel(100);
 
         // build cache
         let cache = Cache::new(&state, CoreContext { 
             intenal_sender: internal_channel.0.clone() 
         });
 
-        let core = Core {
+        (Core {
             state,
             cache,
             query_channel: unbounded_channel(),
             command_channel: unbounded_channel(),
-            internal_channel
-        };
-
-
-
-        return core;
+            internal_channel,
+            event_sender: event_channel.0 
+        }, event_channel.1)
     }
 
     pub fn initialize(&mut self) {
@@ -147,7 +153,7 @@ impl Core {
     pub async fn exec_event(&mut self, event: InternalEvent) {
         println!("Info: Event {:?}", event);
         match event {
-            InternalEvent::ReminderStart { id } => self.start_reminder(id)
+            InternalEvent::ReminderStart { id, next_duration_ms } => self.start_reminder(id, next_duration_ms).await
         }
     }
 
@@ -162,8 +168,11 @@ impl Core {
         CoreResponse::Success(())
     }
 
-    fn start_reminder(&self, id: String) {
-        todo!();
+    async fn start_reminder(&self, id: String, next_ms: i32) {
+        match self.event_sender.send(CoreEvent::ReminderNewStatus { id, next_duration_ms: next_ms }).await {
+            Ok(()) => {},
+            Err(e) => println!("Error: {:?}", e)
+        }
     }
 
 }
@@ -233,7 +242,7 @@ pub enum ClientCommand {
     AddOne { value: i32 },
     Add { x: i32, y: i32},
     SaveReminders{ reminders: Vec<ReminderState> },
-    DelayReminder{ id: String, delay: u64}
+    DelayReminder{ id: String, delay: i32}
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
@@ -263,5 +272,11 @@ pub enum CoreError {
 
 #[derive(Debug, PartialEq)]
 pub enum InternalEvent {
-    ReminderStart{ id: String } 
+    ReminderStart{ id: String, next_duration_ms: i32 } 
+}
+
+#[derive(Serialize, Deserialize, Debug, TS, PartialEq)]
+#[ts(export)]
+pub enum CoreEvent {
+    ReminderNewStatus{ id: String, next_duration_ms: i32 } 
 }

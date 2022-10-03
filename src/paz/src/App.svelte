@@ -14,7 +14,7 @@ get(transport)
  .query({key: "ClientGetState"})
  .then(res => {
 	state.set((res as CoreResponse).data as ClientState)
-})
+});
 
 
 

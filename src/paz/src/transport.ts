@@ -1,5 +1,6 @@
-import type { ClientCommand, ClientQuery } from "@paz/core";
+import type { ClientCommand, ClientQuery, CoreEvent } from "@paz/core";
 import { invoke } from "@tauri-apps/api";
+import { EventCallback, listen, UnlistenFn } from "@tauri-apps/api/event";
 
 export class Transport {
 
@@ -7,11 +8,15 @@ export class Transport {
 
     }
 
-    async query(query: ClientQuery): Promise<unknown> {
-        return await invoke('client_query', { data: query });
+    query(query: ClientQuery): Promise<unknown> {
+        return invoke('client_query', { data: query });
     }
     
-    async command(cmd: ClientCommand): Promise<unknown> {
-        return await invoke('client_command', { data: cmd });
+    command(cmd: ClientCommand): Promise<unknown> {
+        return invoke('client_command', { data: cmd });
+    }
+
+    subscribe(callback: EventCallback<CoreEvent> ): Promise<UnlistenFn> {
+        return listen<CoreEvent>('core_event', callback)
     }
 }

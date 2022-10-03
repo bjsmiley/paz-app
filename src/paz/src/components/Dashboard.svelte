@@ -3,7 +3,7 @@
 import Accordion from '@smui-extra/accordion';
 import IconButton from '@smui/icon-button';
 import { get } from 'svelte/store'
-import { state, transport } from '../store'
+import { reminderStatusEvent, state, transport } from '../store'
 import Reminder from './Reminder.svelte'
 import type { ClientState, CoreResponse, ReminderState } from '@paz/core';
 import {v4 as uuidv4} from 'uuid'
@@ -15,11 +15,18 @@ state.subscribe(val => {
     s = val
 });
 
+get(transport)
+    .subscribe(e => {
+        console.log("new status", e.payload.ReminderNewStatus)
+        let event = e.payload.ReminderNewStatus;
+        reminderStatusEvent.set({ReminderNewStatus: event})
+    })
+
 const onAddClick = () => {
     // the add button doesnt really need to be disabled
     // the newReminder can just be appended onto the array of reminders on state object
     // then add delete button
-    let newReminder = { id: uuidv4(), name: "New Reminder", wait_sec: 5 * 60, is_active: false}
+    let newReminder = { id: uuidv4(), name: "New Reminder", wait_ms: 5 * 60 * 1000, duration_ms: 15 * 1000, is_active: false}
     s?.reminders.push(newReminder)
     s = s
 }
